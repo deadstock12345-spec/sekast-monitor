@@ -6,32 +6,21 @@ const LINE_USER_ID = process.env.LINE_USER_ID;
 const SEEN_IDS_FILE = 'seen-ids.json';
 const MAX_STORED = 800;
 const MAX_NOTIFY = 10;
-const TARGET_URL = 'https://www.2ndstreet.jp/search?category=921011&sortBy=arrival';
 
-async function main() {
-  let seenIds = [];
-  if (fs.existsSync(SEEN_IDS_FILE)) {
-    try { seenIds = JSON.parse(fs.readFileSync(SEEN_IDS_FILE, 'utf8')); } catch(e) {}
-  }
+const TARGETS = [
+  { url: 'https://www.2ndstreet.jp/search?category=921011&sortBy=arrival', label: 'arrival' },
+  { url: 'https://www.2ndstreet.jp/search?category=921011&sortBy=discount-high', label: 'discount' }
+];
 
-  const browser = await chromium.launch({ args: ['--no-sandbox'] });
-  const context = await browser.newContext({
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    locale: 'ja-JP',
-    viewport: { width: 1280, height: 800 }
-  });
-  const page = await context.newPage();
-
+async function scrape(page, url) {
   try {
-    await page.goto(TARGET_URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForSelector('a[href*="/goods/detail/goodsId/"]', { timeout: 30000 });
   } catch(e) {
     console.log('Page load failed:', e.message);
-    await browser.close();
-    return;
+    return [];
   }
-
-  const items = await page.evaluate(() => {
+  return await page.evaluate(() => {
     const seen = new Set();
     const results = [];
     document.querySelectorAll('a[href*="/goods/detail/goodsId/"]').forEach(a => {
@@ -47,29 +36,53 @@ async function main() {
     });
     return results;
   });
+}
 
-  await browser.close();
-  console.log('Fetched:', items.length, 'items');
-
-  if (items.length === 0) {
-    console.log('0 items - skip');
-    return;
+async function main() {
+  let seenIds = [];
+  if (fs.existsSync(SEEN_IDS_FILE)) {
+    try { seenIds = JSON.parse(fs.readFileSync(SEEN_IDS_FILE, 'utf8')); } catch(e) {}
   }
 
-  const seenSet = new Set(seenIds);
+  const browser = await chromium.launch({ args: ['--no-sandbox'] });
+  const context = await browser.newContext({
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    locale: 'ja-JP',
+    viewport: { width: 1280, height: 800 }
+  });
+  const page = await context.newPage();
 
-  if (seenIds.length === 0) {
-    console.log('First run - baseline recorded, no notification');
-  } else {
-    const newItems = items.filter(i => !seenSet.has(i.id));
-    console.log('New items:', newItems.length);
+  const seenSet = new Set(seenIds);
+  const notified = new Set();
+  let allItems = [];
+
+  for (const target of TARGETS) {
+    const items = await scrape(page, target.url);
+    console.log('Fetched (' + target.label + '):', items.length, 'items');
+    if (items.length === 0) continue;
+    allItems.push(...items);
+
+    if (seenIds.length === 0) continue;
+
+    const newItems = items.filter(i => !seenSet.has(i.id) && !notified.has(i.id));
+    console.log('New (' + target.label + '):', newItems.length);
     for (const item of newItems.slice(0, MAX_NOTIFY)) {
-      await sendLine('セカスト新着\n' + item.text + '\n' + item.url);
+      const prefix = target.label === 'discount'
+        ? 'セカスト割引'
+        : 'セカスト新着';
+      await sendLine(prefix + '\n' + item.text + '\n' + item.url);
+      notified.add(item.id);
     }
   }
 
-  const updated = [...new Set([...items.map(i => i.id), ...seenIds])].slice(0, MAX_STORED);
-  fs.writeFileSync(SEEN_IDS_FILE, JSON.stringify(updated));
+  await browser.close();
+
+  if (seenIds.length === 0) {
+    console.log('First run - baseline recorded');
+  }
+
+  const updatedIds = [...new Set([...allItems.map(i => i.id), ...seenIds])].slice(0, MAX_STORED);
+  fs.writeFileSync(SEEN_IDS_FILE, JSON.stringify(updatedIds));
 }
 
 async function sendLine(text) {
