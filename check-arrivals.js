@@ -10,7 +10,8 @@ const MAX_NOTIFY = 10;
 const TARGETS = [
   { url: 'https://www.2ndstreet.jp/search?category=921011&sortBy=arrival', label: 'arrival' },
   { url: 'https://www.2ndstreet.jp/search?category=921011&sortBy=discount-high', label: 'discount' },
-  { url: 'https://www.2ndstreet.jp/search?category=810073&maxPrice=6490&sortBy=arrival', label: 'suit' }
+  { url: 'https://www.2ndstreet.jp/search?category=810073&maxPrice=6490&sortBy=arrival', label: 'suit' },
+  { url: 'https://www.2ndstreet.jp/search?category=810073&sortBy=discount-high', label: 'suit-discount' }
 ];
 
 async function scrape(page, url) {
@@ -31,7 +32,7 @@ async function scrape(page, url) {
       const nameEl = a.querySelector('p[class*="itemCard_name"]') || a.querySelector('p[class*="name"]');
       results.push({
         id: m[1],
-                url: a.href,
+        url: a.href,
         text: nameEl ? nameEl.textContent.trim() : 'goodsId:' + m[1]
       });
     });
@@ -44,7 +45,6 @@ async function main() {
   if (fs.existsSync(SEEN_IDS_FILE)) {
     try { seenIds = JSON.parse(fs.readFileSync(SEEN_IDS_FILE, 'utf8')); } catch(e) {}
   }
-
   const browser = await chromium.launch({ args: ['--no-sandbox'] });
   const context = await browser.newContext({
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -52,7 +52,6 @@ async function main() {
     viewport: { width: 1280, height: 800 }
   });
   const page = await context.newPage();
-
   const seenSet = new Set(seenIds);
   const notified = new Set();
   let allItems = [];
@@ -62,27 +61,24 @@ async function main() {
     console.log('Fetched (' + target.label + '):', items.length, 'items');
     if (items.length === 0) continue;
     allItems.push(...items);
-
     if (seenIds.length === 0) continue;
-
     const newItems = items.filter(i => !seenSet.has(i.id) && !notified.has(i.id));
     console.log('New (' + target.label + '):', newItems.length);
     for (const item of newItems.slice(0, MAX_NOTIFY)) {
       const prefix = target.label === 'discount'
         ? 'セカスト割引'
-                : target.label === 'suit' ? 'セカストスーツ'
-                : 'セカスト新着';
+        : target.label === 'suit' ? 'セカストスーツ'
+        : target.label === 'suit-discount' ? 'セカストスーツ割引'
+        : 'セカスト新着';
       await sendLine(prefix + '\n' + item.text + '\n' + item.url);
       notified.add(item.id);
     }
   }
 
   await browser.close();
-
   if (seenIds.length === 0) {
     console.log('First run - baseline recorded');
   }
-
   const updatedIds = [...new Set([...allItems.map(i => i.id), ...seenIds])].slice(0, MAX_STORED);
   fs.writeFileSync(SEEN_IDS_FILE, JSON.stringify(updatedIds));
 }
