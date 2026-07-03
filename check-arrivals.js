@@ -26,7 +26,7 @@ async function main() {
     await page.goto(TARGET_URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForSelector('a[href*="/goods/detail/goodsId/"]', { timeout: 30000 });
   } catch(e) {
-    console.log('繝壹・繧ｸ隱ｭ縺ｿ霎ｼ縺ｿ螟ｱ謨・', e.message);
+    console.log('Page load failed:', e.message);
     await browser.close();
     return;
   }
@@ -41,7 +41,7 @@ async function main() {
       const nameEl = a.querySelector('p[class*="itemCard_name"]') || a.querySelector('p[class*="name"]');
       results.push({
         id: m[1],
-        url: `https://www.2ndstreet.jp/goods/detail/goodsId/${m[1]}/shopsId/${m[2]}`,
+        url: 'https://www.2ndstreet.jp/goods/detail/goodsId/' + m[1] + '/shopsId/' + m[2],
         text: nameEl ? nameEl.textContent.trim() : 'goodsId:' + m[1]
       });
     });
@@ -49,22 +49,22 @@ async function main() {
   });
 
   await browser.close();
-  console.log(`蜿門ｾ嶺ｻｶ謨ｰ: ${items.length}`);
+  console.log('Fetched:', items.length, 'items');
 
   if (items.length === 0) {
-    console.log('蝠・刀0莉ｶ 窶・繧ｹ繧ｭ繝・・');
+    console.log('0 items - skip');
     return;
   }
 
   const seenSet = new Set(seenIds);
 
   if (seenIds.length === 0) {
-    console.log('蛻晏屓螳溯｡・窶・繝吶・繧ｹ繝ｩ繧､繝ｳ險倬鹸縺ｮ縺ｿ縲・夂衍縺ｪ縺・);
+    console.log('First run - baseline recorded, no notification');
   } else {
     const newItems = items.filter(i => !seenSet.has(i.id));
-    console.log(`譁ｰ逹: ${newItems.length}莉ｶ`);
+    console.log('New items:', newItems.length);
     for (const item of newItems.slice(0, MAX_NOTIFY)) {
-      await sendLine(`縲舌そ繧ｫ繧ｹ繝域眠逹縲曾n${item.text}\n${item.url}`);
+      await sendLine('セカスト新着\n' + item.text + '\n' + item.url);
     }
   }
 
@@ -81,7 +81,7 @@ async function sendLine(text) {
     },
     body: JSON.stringify({ to: LINE_USER_ID, messages: [{ type: 'text', text }] })
   });
-  console.log('LINE騾∽ｿ｡:', res.status);
+  console.log('LINE sent:', res.status);
 }
 
 main().catch(e => { console.error(e); process.exit(1); });
