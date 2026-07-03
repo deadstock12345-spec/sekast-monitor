@@ -30,7 +30,7 @@ async function scrape(page, url) {
       const nameEl = a.querySelector('p[class*="itemCard_name"]') || a.querySelector('p[class*="name"]');
       results.push({
         id: m[1],
-        url: 'https://www.2ndstreet.jp/goods/detail/goodsId/' + m[1] + '/shopsId/' + m[2],
+                url: a.href,
         text: nameEl ? nameEl.textContent.trim() : 'goodsId:' + m[1]
       });
     });
