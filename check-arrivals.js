@@ -9,7 +9,8 @@ const MAX_NOTIFY = 10;
 
 const TARGETS = [
   { url: 'https://www.2ndstreet.jp/search?category=921011&sortBy=arrival', label: 'arrival' },
-  { url: 'https://www.2ndstreet.jp/search?category=921011&sortBy=discount-high', label: 'discount' }
+  { url: 'https://www.2ndstreet.jp/search?category=921011&sortBy=discount-high', label: 'discount' },
+  { url: 'https://www.2ndstreet.jp/search?category=810073&maxPrice=6490&sortBy=arrival', label: 'suit' }
 ];
 
 async function scrape(page, url) {
@@ -69,7 +70,8 @@ async function main() {
     for (const item of newItems.slice(0, MAX_NOTIFY)) {
       const prefix = target.label === 'discount'
         ? 'セカスト割引'
-        : 'セカスト新着';
+                : target.label === 'suit' ? 'セカストスーツ'
+                : 'セカスト新着';
       await sendLine(prefix + '\n' + item.text + '\n' + item.url);
       notified.add(item.id);
     }
