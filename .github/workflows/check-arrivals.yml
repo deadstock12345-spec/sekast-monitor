@@ -2,7 +2,7 @@ name: Check 2ndstreet Arrivals
 
 on:
   schedule:
-    - cron: '*/10 * * * *'h
+    - cron: '*/10 * * * *'
   workflow_dispatch:
 
 jobs:
