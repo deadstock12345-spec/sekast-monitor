@@ -28,7 +28,7 @@ async function scrape(page, url) {
     const seen = new Set();
     const results = [];
     document.querySelectorAll('a[href*="/goods/detail/goodsId/"]').forEach(a => {
-      const m = a.href.match(//goods/detail/goodsId/(d+)/shopsId/(d+)/);
+      const m = a.href.match(/\/goods\/detail\/goodsId\/(\d+)\/shopsId\/(\d+)/);
       if (!m || seen.has(m[1])) return;
       seen.add(m[1]);
       const nameEl = a.querySelector('p[class*="itemCard_name"]') || a.querySelector('p[class*="name"]');
@@ -72,9 +72,7 @@ async function main() {
         : target.label === 'suit' ? 'セカストスーツ'
         : target.label === 'suit-discount' ? 'セカストスーツ割引'
         : 'セカスト新着';
-      await sendLine(prefix + '
-' + item.text + '
-' + item.url);
+      await sendLine(prefix + '\n' + item.text + '\n' + item.url);
       notified.add(item.id);
     }
   }
