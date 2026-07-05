@@ -16,10 +16,12 @@ const TARGETS = [
 
 async function scrape(page, url) {
   try {
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await page.waitForSelector('a[href*="/goods/detail/goodsId/"]', { timeout: 30000 });
+    const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    console.log('HTTP:', response ? response.status() : 'N/A', '/', await page.title());
+    await page.waitForSelector('a[href*="/goods/detail/goodsId/"]', { timeout: 60000 });
   } catch(e) {
     console.log('Page load failed:', e.message);
+    console.log('Title on error:', await page.title().catch(() => 'N/A'));
     return [];
   }
   return await page.evaluate(() => {
@@ -45,6 +47,7 @@ async function main() {
   if (fs.existsSync(SEEN_IDS_FILE)) {
     try { seenIds = JSON.parse(fs.readFileSync(SEEN_IDS_FILE, 'utf8')); } catch(e) {}
   }
+  console.log('seenIds count:', seenIds.length);
   const browser = await chromium.launch({ args: ['--no-sandbox'] });
   const context = await browser.newContext({
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
