@@ -2,7 +2,7 @@ name: Check 2ndstreet Arrivals
 
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '*/30 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -19,11 +19,11 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install Chrome
+        uses: browser-actions/setup-chrome@v1
 
-      - name: Install Playwright browser
-        run: npx playwright install chromium --with-deps
+      - name: Install dependencies
+        run: npm install && npx playwright install-deps chrome
 
       - name: Check arrivals
         env:
