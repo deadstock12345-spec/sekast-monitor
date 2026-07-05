@@ -28,7 +28,7 @@ async function scrape(page, url) {
     const seen = new Set();
     const results = [];
     document.querySelectorAll('a[href*="/goods/detail/goodsId/"]').forEach(a => {
-      const m = a.href.match(/\/goods\/detail\/goodsId\/(\d+)\/shopsId\/(\d+)/);
+      const m = a.href.match(//goods/detail/goodsId/(d+)/shopsId/(d+)/);
       if (!m || seen.has(m[1])) return;
       seen.add(m[1]);
       const nameEl = a.querySelector('p[class*="itemCard_name"]') || a.querySelector('p[class*="name"]');
@@ -47,8 +47,7 @@ async function main() {
   if (fs.existsSync(SEEN_IDS_FILE)) {
     try { seenIds = JSON.parse(fs.readFileSync(SEEN_IDS_FILE, 'utf8')); } catch(e) {}
   }
-  console.log('seenIds count:', seenIds.length);
-  const browser = await chromium.launch({ args: ['--no-sandbox'] });
+  const browser = await chromium.launch({ channel: 'chrome', args: ['--no-sandbox'] });
   const context = await browser.newContext({
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     locale: 'ja-JP',
@@ -73,7 +72,9 @@ async function main() {
         : target.label === 'suit' ? 'セカストスーツ'
         : target.label === 'suit-discount' ? 'セカストスーツ割引'
         : 'セカスト新着';
-      await sendLine(prefix + '\n' + item.text + '\n' + item.url);
+      await sendLine(prefix + '
+' + item.text + '
+' + item.url);
       notified.add(item.id);
     }
   }
