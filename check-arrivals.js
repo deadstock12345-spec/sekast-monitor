@@ -49,7 +49,7 @@ async function scrape(url) {
       const nameEl = a.querySelector('p[class*="itemCard_name"]') || a.querySelector('p[class*="name"]');
       results.push({
         id: m[1],
-        url: a.href,
+        url: 'https://www.2ndstreet.jp/goods/detail/goodsId/' + m[1] + '/shopsId/' + m[2],
         text: nameEl ? nameEl.textContent.trim() : 'goodsId:' + m[1]
       });
     });
