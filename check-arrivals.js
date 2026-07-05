@@ -14,17 +14,32 @@ const TARGETS = [
   { url: 'https://www.2ndstreet.jp/search?category=810073&sortBy=discount-high', label: 'suit-discount' }
 ];
 
-async function scrape(page, url) {
+async function scrape(url) {
+  const browser = await chromium.launch({ channel: 'chrome', args: ['--no-sandbox'] });
+  const context = await browser.newContext({
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    locale: 'ja-JP',
+    viewport: { width: 1280, height: 800 }
+  });
+  const page = await context.newPage();
+
   try {
     const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    console.log('HTTP:', response ? response.status() : 'N/A', '/', await page.title());
+    const status = response ? response.status() : 0;
+    console.log('HTTP:', status, '/', await page.title());
+    if (status !== 200) {
+      await browser.close();
+      return [];
+    }
     await page.waitForSelector('a[href*="/goods/detail/goodsId/"]', { timeout: 60000 });
   } catch(e) {
     console.log('Page load failed:', e.message);
     console.log('Title on error:', await page.title().catch(() => 'N/A'));
+    await browser.close();
     return [];
   }
-  return await page.evaluate(() => {
+
+  const results = await page.evaluate(() => {
     const seen = new Set();
     const results = [];
     document.querySelectorAll('a[href*="/goods/detail/goodsId/"]').forEach(a => {
@@ -40,6 +55,9 @@ async function scrape(page, url) {
     });
     return results;
   });
+
+  await browser.close();
+  return results;
 }
 
 async function main() {
@@ -47,24 +65,20 @@ async function main() {
   if (fs.existsSync(SEEN_IDS_FILE)) {
     try { seenIds = JSON.parse(fs.readFileSync(SEEN_IDS_FILE, 'utf8')); } catch(e) {}
   }
-  const browser = await chromium.launch({ channel: 'chrome', args: ['--no-sandbox'] });
-  const context = await browser.newContext({
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    locale: 'ja-JP',
-    viewport: { width: 1280, height: 800 }
-  });
-  const page = await context.newPage();
+
   const seenSet = new Set(seenIds);
   const notified = new Set();
   let allItems = [];
 
-  for (const target of TARGETS) {
-    const items = await scrape(page, target.url);
+  for (let i = 0; i < TARGETS.length; i++) {
+    const target = TARGETS[i];
+    if (i > 0) await new Promise(r => setTimeout(r, 15000));
+    const items = await scrape(target.url);
     console.log('Fetched (' + target.label + '):', items.length, 'items');
     if (items.length === 0) continue;
     allItems.push(...items);
     if (seenIds.length === 0) continue;
-    const newItems = items.filter(i => !seenSet.has(i.id) && !notified.has(i.id));
+    const newItems = items.filter(item => !seenSet.has(item.id) && !notified.has(item.id));
     console.log('New (' + target.label + '):', newItems.length);
     for (const item of newItems.slice(0, MAX_NOTIFY)) {
       const prefix = target.label === 'discount'
@@ -77,7 +91,6 @@ async function main() {
     }
   }
 
-  await browser.close();
   if (seenIds.length === 0) {
     console.log('First run - baseline recorded');
   }
